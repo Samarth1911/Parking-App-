@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed - Reserve and Park</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        @keyframes checkmark {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-checkmark {
+            animation: checkmark 0.6s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.6s ease-out;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-fadeIn">
+        <!-- Success Icon -->
+        <div class="text-center mb-6">
+            <div class="inline-block p-4 bg-green-100 rounded-full mb-4 animate-checkmark">
+                <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">Booking Confirmed!</h2>
+            <p class="text-gray-600 mt-2">Your parking spot has been reserved</p>
+        </div>
+
+        <!-- Receipt Details -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 class="font-semibold text-gray-800 mb-4 text-center border-b pb-2">Receipt</h3>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Location:</span>
+                    <span id="spotName" class="font-semibold text-right"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Address:</span>
+                    <span id="spotAddress" class="text-right text-sm"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Date & Time:</span>
+                    <span id="bookingDate" class="text-right text-sm"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Transaction ID:</span>
+                    <span id="transactionId" class="font-mono text-sm break-all"></span>
+                </div>
+                <div class="border-t pt-3 flex justify-between items-center">
+                    <span class="text-gray-800 font-semibold">Amount Paid:</span>
+                    <span id="amountPaid" class="text-2xl font-bold text-green-600"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Confirmation Notice -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <div>
+                    <p class="text-sm font-semibold text-blue-900">Receipt Sent!</p>
+                    <p id="emailText" class="text-xs text-blue-700 mt-1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code Section -->
+        <div class="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6 mb-6 text-center">
+            <p class="text-sm font-semibold text-gray-700 mb-3">Show this at the parking entrance</p>
+            <div class="bg-white p-4 rounded-lg inline-block">
+                <div id="qrCode" class="w-32 h-32 mx-auto bg-gray-200 flex items-center justify-center rounded">
+                    <svg class="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm-2 8h8v8H3v-8zm2 6h4v-4H5v4zm8-14v8h8V3h-8zm6 6h-4V5h4v4zm-6 8h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm4-4h2v2h-2v-2zm0 4h2v2h-2v-2zm2-6h2v4h-2v-4z"/>
+                    </svg>
+                </div>
+            </div>
+            <p id="qrTransactionId" class="text-xs text-gray-600 mt-2 font-mono"></p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-3 no-print">
+            <button
+                onclick="window.print()"
+                class="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-200 flex items-center justify-center gap-2"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Print Receipt
+            </button>
+
+            <button
+                onclick="downloadReceipt()"
+                class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200 flex items-center justify-center gap-2"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download Receipt
+            </button>
+
+            <button
+                id="backToDashboard"
+                class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200"
+            >
+                Back to Dashboard
+            </button>
+        </div>
+
+        <!-- Important Notes -->
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 class="font-semibold text-yellow-800 mb-2 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Important Notes
+            </h4>
+            <ul class="text-sm text-yellow-800 space-y-1">
+                <li>• Please arrive within 30 minutes of booking</li>
+                <li>• Keep this receipt for parking entry/exit</li>
+                <li>• Contact support for any issues</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is logged in
+        const user = JSON.parse(localStorage.getItem('parkingUser'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+
+        // Get receipt data
+        const receipt = JSON.parse(localStorage.getItem('latestReceipt'));
+        if (!receipt) {
+            window.location.href = 'dashboard.html';
+        }
+
+        // Display receipt information
+        document.getElementById('spotName').textContent = receipt.spotName;
+        document.getElementById('spotAddress').textContent = receipt.spotAddress;
+        document.getElementById('bookingDate').textContent = receipt.date;
+        document.getElementById('transactionId').textContent = receipt.transactionId;
+        document.getElementById('qrTransactionId').textContent = receipt.transactionId;
+        document.getElementById('amountPaid').textContent = receipt.amount === 0 ? 'FREE' : '₹' + receipt.amount;
+        document.getElementById('emailText').textContent = `A copy has been emailed to ${user.email}`;
+
+        // Back to dashboard button
+        document.getElementById('backToDashboard').addEventListener('click', function() {
+            window.location.href = 'dashboard.html';
+        });
+
+        // Download receipt function
+        function downloadReceipt() {
+            const receiptData = `
+RESERVE AND PARK - PARKING RECEIPT
+====================================
+
+Location: ${receipt.spotName}
+Address: ${receipt.spotAddress}
+Date & Time: ${receipt.date}
+Transaction ID: ${receipt.transactionId}
+Amount Paid: ${receipt.amount === 0 ? 'FREE' : '₹' + receipt.amount}
+
+====================================
+Thank you for using Reserve and Park!
+Customer Email: ${user.email}
+
+IMPORTANT NOTES:
+- Please arrive within 30 minutes of booking
+- Keep this receipt for parking entry/exit
+- Contact support for any issues
+            `.trim();
+
+            const blob = new Blob([receiptData], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Parking_Receipt_${receipt.transactionId}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Confetti effect (optional - celebratory animation)
+        function createConfetti() {
+            const colors = ['#60A5FA', '#34D399', '#F472B6', '#FBBF24', '#A78BFA'];
+            const confettiCount = 50;
+
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = Math.random() * window.innerWidth + 'px';
+                confetti.style.top = '-10px';
+                confetti.style.opacity = '1';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.borderRadius = '50%';
+                document.body.appendChild(confetti);
+
+                const duration = Math.random() * 3 + 2;
+                const xMovement = (Math.random() - 0.5) * 200;
+
+                confetti.animate([
+                    { transform: 'translateY(0) translateX(0) rotate(0deg)', opacity: 1 },
+                    { transform: `translateY(${window.innerHeight}px) translateX(${xMovement}px) rotate(720deg)`, opacity: 0 }
+                ], {
+                    duration: duration * 1000,
+                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                });
+
+                setTimeout(() => {
+                    confetti.remove();
+                }, duration * 1000);
+            }
+        }
+
+        // Trigger confetti on page load
+        setTimeout(createConfetti, 300);
+    </script>
+    <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- Your Firebase Config -->
+<script src="firebase-config.js"></script>
+
+</body>
+</html>

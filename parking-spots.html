@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Parking Spots - Reserve and Park</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="firebase-config.js"></script>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <button id="backBtn" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </button>
+                <span class="text-xl font-bold text-gray-800">Available Spots</span>
+                <button id="logoutBtn" class="text-gray-600 hover:text-gray-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header Section -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Parking in <span id="locationText"></span></h2>
+            <p class="text-gray-600">Found <span id="spotCount">15</span> parking slots across 5 locations</p>
+        </div>
+
+        <!-- Filter Options -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex flex-wrap gap-3 items-center">
+                <span class="font-semibold text-gray-700">Filter:</span>
+                <button id="filterAll" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+                    All
+                </button>
+                <button id="filterFree" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition">
+                    Free Only
+                </button>
+                <button id="filterPaid" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition">
+                    Paid Only
+                </button>
+            </div>
+        </div>
+
+        <!-- Parking Spots Grid -->
+        <div id="parkingSpotsGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 15 spots will be dynamically inserted here (3 slots x 5 locations) -->
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResults" class="hidden text-center py-12">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No parking spots found</h3>
+            <p class="text-gray-500">Try adjusting your filters or search in a different area</p>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is logged in
+        const user = JSON.parse(localStorage.getItem('parkingUser'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+
+        // Get search parameters
+        const city = localStorage.getItem('searchCity') || 'Pune';
+        const area = localStorage.getItem('searchArea') || 'All Areas';
+        document.getElementById('locationText').textContent = `${city}, ${area}`;
+
+        // Mock parking spots data - 3 SLOTS AT 5 DIFFERENT LOCATIONS
+        const parkingSpots = [
+            // LOCATION 1: City Center Mall
+            { 
+                id: 1, 
+                name: 'City Center Mall - Slot P1', 
+                address: 'MG Road, Pune', 
+                type: 'paid', 
+                price: 50, 
+                available: 1, 
+                total: 1, 
+                distance: '0.5 km',
+                features: ['Covered', 'CCTV', 'Security'],
+                slotId: 1,
+                location: 'City Center Mall'
+            },
+            { 
+                id: 2, 
+                name: 'City Center Mall - Slot P2', 
+                address: 'MG Road, Pune', 
+                type: 'paid', 
+                price: 50, 
+                available: 1, 
+                total: 1, 
+                distance: '0.5 km',
+                features: ['Covered', '24/7', 'EV Charging'],
+                slotId: 2,
+                location: 'City Center Mall'
+            },
+            { 
+                id: 3, 
+                name: 'City Center Mall - Slot P3', 
+                address: 'MG Road, Pune', 
+                type: 'paid', 
+                price: 50, 
+                available: 1, 
+                total: 1, 
+                distance: '0.5 km',
+                features: ['Open Air', 'Well Lit'],
+                slotId: 3,
+                location: 'City Center Mall'
+            },
+            
+            // LOCATION 2: Phoenix Market City
+            { 
+                id: 4, 
+                name: 'Phoenix Market City - Slot P1', 
+                address: 'Camp Area, Pune', 
+                type: 'paid', 
+                price: 40, 
+                available: 1, 
+                total: 1, 
+                distance: '1.2 km',
+                features: ['Covered', 'CCTV', 'Security'],
+                slotId: 1,
+                location: 'Phoenix Market City'
+            },
+            { 
+                id: 5, 
+                name: 'Phoenix Market City - Slot P2', 
+                address: 'Camp Area, Pune', 
+                type: 'paid', 
+                price: 40, 
+                available: 1, 
+                total: 1, 
+                distance: '1.2 km',
+                features: ['Covered', '24/7', 'Ground Floor'],
+                slotId: 2,
+                location: 'Phoenix Market City'
+            },
+            { 
+                id: 6, 
+                name: 'Phoenix Market City - Slot P3', 
+                address: 'Camp Area, Pune', 
+                type: 'paid', 
+                price: 40, 
+                available: 1, 
+                total: 1, 
+                distance: '1.2 km',
+                features: ['Basement', 'Well Lit'],
+                slotId: 3,
+                location: 'Phoenix Market City'
+            },
+            
+            // LOCATION 3: Public Parking Lot
+            { 
+                id: 7, 
+                name: 'Public Parking Lot - Slot P1', 
+                address: 'Shivaji Nagar, Pune', 
+                type: 'free', 
+                price: 0, 
+                available: 1, 
+                total: 1, 
+                distance: '0.8 km',
+                features: ['Open Air', 'Well Lit'],
+                slotId: 1,
+                location: 'Public Parking Lot'
+            },
+            { 
+                id: 8, 
+                name: 'Public Parking Lot - Slot P2', 
+                address: 'Shivaji Nagar, Pune', 
+                type: 'free', 
+                price: 0, 
+                available: 1, 
+                total: 1, 
+                distance: '0.8 km',
+                features: ['Open Air', 'CCTV'],
+                slotId: 2,
+                location: 'Public Parking Lot'
+            },
+            { 
+                id: 9, 
+                name: 'Public Parking Lot - Slot P3', 
+                address: 'Shivaji Nagar, Pune', 
+                type: 'free', 
+                price: 0, 
+                available: 1, 
+                total: 1, 
+                distance: '0.8 km',
+                features: ['Open Air', 'Security Guard'],
+                slotId: 3,
+                location: 'Public Parking Lot'
+            },
+            
+            // LOCATION 4: Metro Station
+            { 
+                id: 10, 
+                name: 'Metro Station - Slot P1', 
+                address: 'Kharadi, Pune', 
+                type: 'paid', 
+                price: 30, 
+                available: 1, 
+                total: 1, 
+                distance: '2.1 km',
+                features: ['Covered', 'Security', 'Metro Access'],
+                slotId: 1,
+                location: 'Metro Station'
+            },
+            { 
+                id: 11, 
+                name: 'Metro Station - Slot P2', 
+                address: 'Kharadi, Pune', 
+                type: 'paid', 
+                price: 30, 
+                available: 1, 
+                total: 1, 
+                distance: '2.1 km',
+                features: ['Covered', '24/7', 'Metro Access'],
+                slotId: 2,
+                location: 'Metro Station'
+            },
+            { 
+                id: 12, 
+                name: 'Metro Station - Slot P3', 
+                address: 'Kharadi, Pune', 
+                type: 'paid', 
+                price: 30, 
+                available: 1, 
+                total: 1, 
+                distance: '2.1 km',
+                features: ['Open Air', 'Metro Access'],
+                slotId: 3,
+                location: 'Metro Station'
+            },
+            
+            // LOCATION 5: Tech Park
+            { 
+                id: 13, 
+                name: 'Tech Park - Slot P1', 
+                address: 'Hinjewadi, Pune', 
+                type: 'paid', 
+                price: 60, 
+                available: 1, 
+                total: 1, 
+                distance: '3.5 km',
+                features: ['Covered', 'CCTV', 'EV Charging'],
+                slotId: 1,
+                location: 'Tech Park'
+            },
+            { 
+                id: 14, 
+                name: 'Tech Park - Slot P2', 
+                address: 'Hinjewadi, Pune', 
+                type: 'paid', 
+                price: 60, 
+                available: 1, 
+                total: 1, 
+                distance: '3.5 km',
+                features: ['Covered', '24/7', 'EV Charging'],
+                slotId: 2,
+                location: 'Tech Park'
+            },
+            { 
+                id: 15, 
+                name: 'Tech Park - Slot P3', 
+                address: 'Hinjewadi, Pune', 
+                type: 'paid', 
+                price: 60, 
+                available: 1, 
+                total: 1, 
+                distance: '3.5 km',
+                features: ['Basement', 'Security', 'EV Charging'],
+                slotId: 3,
+                location: 'Tech Park'
+            }
+        ];
+
+        let currentFilter = 'all';
+
+        // Display parking spots
+        function displayParkingSpots(filter = 'all') {
+            const grid = document.getElementById('parkingSpotsGrid');
+            const noResults = document.getElementById('noResults');
+            
+            let filteredSpots = parkingSpots;
+            
+            if (filter === 'free') {
+                filteredSpots = parkingSpots.filter(spot => spot.type === 'free');
+            } else if (filter === 'paid') {
+                filteredSpots = parkingSpots.filter(spot => spot.type === 'paid');
+            }
+
+            document.getElementById('spotCount').textContent = filteredSpots.length;
+
+            if (filteredSpots.length === 0) {
+                grid.innerHTML = '';
+                noResults.classList.remove('hidden');
+                return;
+            }
+
+            noResults.classList.add('hidden');
+            
+            grid.innerHTML = filteredSpots.map(spot => `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300">
+                    <div class="h-2 ${spot.type === 'free' ? 'bg-green-500' : 'bg-blue-500'}"></div>
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-lg font-bold text-gray-800">${spot.name}</h3>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${
+                                spot.type === 'free' 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-blue-100 text-blue-700'
+                            }">
+                                ${spot.type === 'free' ? 'FREE' : '₹' + spot.price + '/hr'}
+                            </span>
+                        </div>
+                        
+                        <p class="text-gray-600 text-sm mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            ${spot.address}
+                        </p>
+                        
+                        <div class="space-y-2 mb-4">
+                            <div class="flex items-center gap-2 text-sm text-gray-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                </svg>
+                                ${spot.distance} away
+                            </div>
+                            <div class="flex items-center gap-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span class="${spot.available < 1 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}">
+                                    ${spot.available > 0 ? 'Available' : 'Full'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1 mb-4">
+                            ${spot.features.map(feature => `
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                    ${feature}
+                                </span>
+                            `).join('')}
+                        </div>
+
+                        <div class="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-semibold text-blue-900">Slot Number:</span>
+                                <span class="text-2xl font-bold text-blue-600">P${spot.slotId}</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="bookSpot(${spot.id})"
+                            ${spot.available === 0 ? 'disabled' : ''}
+                            class="w-full py-3 rounded-lg font-semibold transition duration-200 ${
+                                spot.available === 0
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : spot.type === 'free'
+                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }"
+                        >
+                            ${spot.available === 0 ? 'Full' : 'Book Now'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Book a parking spot
+        function bookSpot(spotId) {
+            const spot = parkingSpots.find(s => s.id === spotId);
+            if (!spot) return;
+
+            // If free parking, book directly
+            if (spot.type === 'free') {
+                const booking = {
+                    id: Date.now(),
+                    spotName: spot.name,
+                    spotAddress: spot.address,
+                    date: new Date().toLocaleString(),
+                    transactionId: 'FREE-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+                    amount: 0,
+                    slotId: spot.slotId,  // Physical slot ID (1, 2, or 3)
+                    location: spot.location  // Location name
+                };
+
+                const bookings = JSON.parse(localStorage.getItem('parkingBookings') || '[]');
+                bookings.push(booking);
+                localStorage.setItem('parkingBookings', JSON.stringify(bookings));
+                localStorage.setItem('latestReceipt', JSON.stringify(booking));
+                
+                window.location.href = 'receipt.html';
+            } else {
+                // Store selected spot and go to payment
+                localStorage.setItem('selectedParkingSpot', JSON.stringify(spot));
+                window.location.href = 'payment.html';
+            }
+        }
+
+        // Filter functionality
+        function setActiveFilter(filterId) {
+            ['filterAll', 'filterFree', 'filterPaid'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (id === filterId) {
+                    btn.classList.remove('bg-gray-200', 'text-gray-700');
+                    btn.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+        }
+
+        document.getElementById('filterAll').addEventListener('click', function() {
+            currentFilter = 'all';
+            setActiveFilter('filterAll');
+            displayParkingSpots('all');
+        });
+
+        document.getElementById('filterFree').addEventListener('click', function() {
+            currentFilter = 'free';
+            setActiveFilter('filterFree');
+            displayParkingSpots('free');
+        });
+
+        document.getElementById('filterPaid').addEventListener('click', function() {
+            currentFilter = 'paid';
+            setActiveFilter('filterPaid');
+            displayParkingSpots('paid');
+        });
+
+        // Back button
+        document.getElementById('backBtn').addEventListener('click', function() {
+            window.location.href = 'dashboard.html';
+        });
+
+        // Logout button
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('parkingUser');
+            localStorage.removeItem('userLocation');
+            window.location.href = 'login.html';
+        });
+
+        // Initial display
+        displayParkingSpots();
+    </script>
+    <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- Your Firebase Config -->
+<script src="firebase-config.js"></script>
+
+</body>
+</html>
